@@ -1,6 +1,7 @@
 name: Chat Assistant Tests
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "agents/**"
