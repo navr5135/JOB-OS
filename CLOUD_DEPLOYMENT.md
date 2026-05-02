@@ -8,6 +8,17 @@ Telegram command -> Supabase Edge Function -> GitHub Actions -> Python agent -> 
 
 The Python process only exists while GitHub Actions is running. After the run finishes, it shuts down automatically.
 
+## Project Values
+
+```text
+GitHub owner: navr5135
+GitHub repo: JOB-OS
+GitHub URL: https://github.com/navr5135/JOB-OS
+Supabase URL: https://yfxrysqwcacxwibilqvl.supabase.co
+Supabase project ref: yfxrysqwcacxwibilqvl
+Telegram webhook URL: https://yfxrysqwcacxwibilqvl.supabase.co/functions/v1/telegram-webhook
+```
+
 ## 1. Supabase
 
 1. Create a free Supabase project.
