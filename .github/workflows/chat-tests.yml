@@ -1,0 +1,31 @@
+name: Chat Assistant Tests
+
+on:
+  push:
+    paths:
+      - "agents/**"
+      - "integrations/**"
+      - "llm.py"
+      - "tests/**"
+      - ".github/workflows/chat-tests.yml"
+  pull_request:
+    paths:
+      - "agents/**"
+      - "integrations/**"
+      - "llm.py"
+      - "tests/**"
+      - ".github/workflows/chat-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run chat regression tests
+        run: python -m unittest tests.test_chat_assistant
