@@ -37,6 +37,13 @@ def news_search(query, limit=5):
     return "Top news:\n" + ("\n\n".join(lines) if lines else "No news results found.")
 
 
+def news_report_text(user_text, query, limit=5):
+    items = news_items(clean_news_query(query), limit)
+    if not items:
+        return "I could not find useful news results for that report."
+    return news_report(user_text, items)
+
+
 def send_news_email(user_text, query, limit=10):
     recipient = extract_email(user_text) or config.RECIPIENT_EMAIL
     items = news_items(clean_news_query(query), limit)

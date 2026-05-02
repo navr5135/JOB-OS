@@ -11,7 +11,7 @@ SYSTEM_PROMPT = """
 You are the Job Search OS assistant for Navaditya. Classify the user's intent.
 Return JSON only with keys: intent, query, limit. Valid intents: status,
 top_jobs, email_top_jobs, email_report, recent_email, email_news, web_search,
-news_search, run_discovery, run_apply, run_pipeline, help, general.
+news_search, news_report, run_discovery, run_apply, run_pipeline, help, general.
 """
 
 
@@ -95,7 +95,7 @@ def _heuristic_intent(text):
     elif "gmail" in lower or "email" in lower or "inbox" in lower:
         intent = "recent_email"
     elif "news" in lower:
-        intent = "news_search"
+        intent = "news_report" if any(w in lower for w in ("report", "write", "summary", "summarize")) else "news_search"
     elif "search" in lower or "web" in lower or "latest" in lower:
         intent = "web_search"
     elif "discover" in lower:
@@ -118,7 +118,9 @@ def _classify(user_text):
     if not llm.can_call():
         return fallback
     payload = llm.ask_json(SYSTEM_PROMPT, user_text, model=llm.FAST_MODEL)
-    if not payload:
+    if isinstance(payload, list):
+        payload = payload[0] if payload and isinstance(payload[0], dict) else {}
+    if not isinstance(payload, dict) or not payload:
         return fallback
     return {
         "intent": payload.get("intent") or fallback["intent"],
@@ -135,29 +137,34 @@ def _general_answer(user_text):
 
 
 def run_chat_once():
-    messages = _pending_messages()
-    if not messages:
-        telegram.send_message("I do not see a new chat message to answer.")
-        return
-    user_text = "\n".join(messages).strip()
-    decision = _classify(user_text)
-    intent, query, limit = decision["intent"], decision["query"], decision["limit"]
-    print(f"Chat intent: {intent} | query={query}")
-    actions = {
-        "status": lambda: _status_text(),
-        "top_jobs": lambda: _format_jobs(_top_jobs(limit)),
-        "email_top_jobs": lambda: _send_top_jobs_email(limit=10),
-        "email_report": _send_report_email,
-        "email_news": lambda: chat_tools.send_news_email(user_text, query, limit=10),
-        "recent_email": _recent_email_text,
-        "web_search": lambda: chat_tools.web_search(query),
-        "news_search": lambda: chat_tools.news_search(query),
-        "run_discovery": lambda: "Starting discovery now.\n" + _run_os_command("discover"),
-        "run_apply": lambda: "Starting application writing now.\n" + _run_os_command("apply"),
-        "run_pipeline": lambda: "Starting the full pipeline now.\n" + _run_os_command("run"),
-        "help": _help_text,
-    }
-    response = actions.get(intent, lambda: _general_answer(user_text))()
+    try:
+        messages = _pending_messages()
+        if not messages:
+            telegram.send_message("I do not see a new chat message to answer.")
+            return
+        user_text = "\n".join(messages).strip()
+        decision = _classify(user_text)
+        intent, query, limit = decision["intent"], decision["query"], decision["limit"]
+        print(f"Chat intent: {intent} | query={query}")
+        actions = {
+            "status": lambda: _status_text(),
+            "top_jobs": lambda: _format_jobs(_top_jobs(limit)),
+            "email_top_jobs": lambda: _send_top_jobs_email(limit=10),
+            "email_report": _send_report_email,
+            "email_news": lambda: chat_tools.send_news_email(user_text, query, limit=10),
+            "recent_email": _recent_email_text,
+            "web_search": lambda: chat_tools.web_search(query),
+            "news_search": lambda: chat_tools.news_search(query),
+            "news_report": lambda: chat_tools.news_report_text(user_text, query),
+            "run_discovery": lambda: "Starting discovery now.\n" + _run_os_command("discover"),
+            "run_apply": lambda: "Starting application writing now.\n" + _run_os_command("apply"),
+            "run_pipeline": lambda: "Starting the full pipeline now.\n" + _run_os_command("run"),
+            "help": _help_text,
+        }
+        response = actions.get(intent, lambda: _general_answer(user_text))()
+    except Exception as exc:
+        response = f"I hit an internal chat error instead of leaving you hanging: {exc}"
+        print(response)
     db.append_chat_history("assistant", response)
     telegram.send_message(response)
 
