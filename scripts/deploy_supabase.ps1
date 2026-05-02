@@ -4,6 +4,20 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$envPath = Join-Path (Get-Location) ".env"
+if (Test-Path $envPath) {
+    Get-Content $envPath | ForEach-Object {
+        $line = $_.Trim()
+        if (-not $line -or $line.StartsWith("#") -or -not $line.Contains("=")) {
+            return
+        }
+        $parts = $line.Split("=", 2)
+        $name = $parts[0].Trim()
+        $value = $parts[1].Trim().Trim('"').Trim("'")
+        [Environment]::SetEnvironmentVariable($name, $value, "Process")
+    }
+}
+
 $required = @(
     "SUPABASE_ACCESS_TOKEN",
     "SUPABASE_SERVICE_ROLE_KEY",
