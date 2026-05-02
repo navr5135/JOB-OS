@@ -32,11 +32,11 @@ foreach ($name in $required) {
     }
 }
 
-npx supabase login --token ${env:SUPABASE_ACCESS_TOKEN}
-npx supabase link --project-ref $ProjectRef
-npx supabase db push
+npx.cmd supabase login --token ${env:SUPABASE_ACCESS_TOKEN}
+npx.cmd supabase link --project-ref $ProjectRef
+npx.cmd supabase db push
 
-npx supabase secrets set `
+npx.cmd supabase secrets set `
     TELEGRAM_BOT_TOKEN="${env:TELEGRAM_BOT_TOKEN}" `
     TELEGRAM_CHAT_ID="${env:TELEGRAM_CHAT_ID}" `
     GITHUB_OWNER="navr5135" `
@@ -47,7 +47,7 @@ npx supabase secrets set `
     SUPABASE_URL="https://yfxrysqwcacxwibilqvl.supabase.co" `
     SUPABASE_SERVICE_ROLE_KEY="${env:SUPABASE_SERVICE_ROLE_KEY}"
 
-npx supabase functions deploy telegram-webhook --no-verify-jwt
+npx.cmd supabase functions deploy telegram-webhook --no-verify-jwt
 
 $webhookUrl = "https://yfxrysqwcacxwibilqvl.supabase.co/functions/v1/telegram-webhook"
 Invoke-RestMethod `
