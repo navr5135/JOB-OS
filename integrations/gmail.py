@@ -6,6 +6,7 @@ import json
 import base64
 from email.mime.text import MIMEText
 from google.auth.transport.requests import Request
+from google.auth.exceptions import RefreshError
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -40,8 +41,12 @@ def get_gmail_service():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("Refreshing Gmail tokens...")
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except RefreshError as exc:
+                print(f"Gmail token refresh failed, reauthorization required: {exc}")
+                creds = None
+        if not creds or not creds.valid:
             print(f"Loading credentials from {CREDENTIALS_FILE}...")
             if not os.path.exists(CREDENTIALS_FILE):
                 raise FileNotFoundError(f"Credentials file '{CREDENTIALS_FILE}' not found. Please place it in the project root.")
