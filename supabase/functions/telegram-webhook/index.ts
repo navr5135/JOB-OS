@@ -27,8 +27,8 @@ async function sendTelegram(chatId: string, text: string) {
 }
 
 function parseCommand(text = "") {
-  const [command = "", password = ""] = text.trim().split(/\s+/, 2);
-  return { command: command.toLowerCase(), password };
+  const [command = ""] = text.trim().split(/\s+/, 1);
+  return command.toLowerCase();
 }
 
 async function triggerWorkflow(command: string) {
@@ -96,6 +96,22 @@ async function fetchJobs(path: string) {
   return await res.json();
 }
 
+async function saveChatMessage(role: string, content: string) {
+  const url = `${env("SUPABASE_URL")}/rest/v1/chat_history`;
+  const key = env("SUPABASE_SERVICE_ROLE_KEY");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({ role, content }),
+  });
+  if (!res.ok) throw new Error(`Supabase chat insert failed: ${res.status}`);
+}
+
 async function handleStatus(chatId: string) {
   const rows = await fetchJobs("jobs?select=status");
   const stats: Record<string, number> = {};
@@ -122,15 +138,17 @@ Deno.serve(async (req) => {
     const chatId = String(update.message?.chat?.id || "");
     const text = update.message?.text || "";
     const allowedChatId = env("TELEGRAM_CHAT_ID");
-    const commandPassword = env("COMMAND_PASSWORD");
 
     if (chatId !== allowedChatId) return new Response("ignored", { status: 200 });
 
-    const { command, password } = parseCommand(text);
-    if (password !== commandPassword) {
-      await sendTelegram(chatId, "Unauthorized command.");
+    if (text && !text.trim().startsWith("/")) {
+      await saveChatMessage("user", text.trim());
+      await sendTelegram(chatId, "Thinking...");
+      await triggerWorkflow("chat");
       return new Response("ok", { status: 200 });
     }
+
+    const command = parseCommand(text);
 
     if (command === "/run") {
       await triggerWorkflow("run");
@@ -149,9 +167,9 @@ Deno.serve(async (req) => {
     } else if (command === "/jobs") {
       await handleJobs(chatId);
     } else if (command === "/help") {
-      await sendTelegram(chatId, "Commands:\n/run <password>\n/discover <password>\n/apply <password>\n/stop <password>\n/status <password>\n/jobs <password>\n/help <password>");
+      await sendTelegram(chatId, "Commands:\n/run\n/discover\n/apply\n/stop\n/status\n/jobs\n/help");
     } else {
-      await sendTelegram(chatId, "Unknown command. Try /help <password>.");
+      await sendTelegram(chatId, "Unknown command. Try /help.");
     }
 
     return new Response("ok", { status: 200 });

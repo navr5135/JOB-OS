@@ -39,9 +39,11 @@ jobs:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          GMAIL_TOKEN_JSON: ${{ secrets.GMAIL_TOKEN_JSON }}
           AGENT_COMMAND: ${{ github.event.inputs.command || 'run' }}
           GEMINI_MODEL: gemini-2.5-flash-lite
           GEMINI_FAST_MODEL: gemini-2.5-flash-lite
+          GEMINI_FALLBACK_MODELS: gemini-2.0-flash-lite,gemini-2.5-flash
           GEMINI_DAILY_REQUEST_BUDGET: "18"
           MAX_LLM_SCORED_JOBS: "8"
           MAX_APPLICATIONS_PER_RUN: "2"

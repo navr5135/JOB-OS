@@ -1,6 +1,4 @@
-"""
-Gemini API wrapper for all AI calls. This module interacts with the new Google GenAI SDK.
-"""
+"""Gemini API wrapper for all AI calls."""
 import os
 import json
 from google import genai
@@ -12,15 +10,22 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 REQUEST_BUDGET = int(os.getenv("GEMINI_DAILY_REQUEST_BUDGET", "18"))
 REQUESTS_USED = 0
 RATE_LIMITED = False
+RATE_LIMITED_MODELS = set()
 
 if not GEMINI_API_KEY:
     print("WARNING: GEMINI_API_KEY not found in .env. API calls will fail.")
-
-# Initialize the client globally
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 FAST_MODEL = os.getenv("GEMINI_FAST_MODEL", DEFAULT_MODEL)
+FALLBACK_MODELS = [
+    item.strip()
+    for item in os.getenv(
+        "GEMINI_FALLBACK_MODELS",
+        "gemini-2.0-flash-lite,gemini-2.5-flash",
+    ).split(",")
+    if item.strip()
+]
 
 def calls_remaining():
     return max(REQUEST_BUDGET - REQUESTS_USED, 0)
@@ -31,10 +36,26 @@ def can_call():
 def is_rate_limited():
     return RATE_LIMITED
 
+def model_candidates(model):
+    seen = set()
+    candidates = []
+    for name in [model, *FALLBACK_MODELS]:
+        if name and name not in seen and name not in RATE_LIMITED_MODELS:
+            candidates.append(name)
+            seen.add(name)
+    return candidates
+
+def is_quota_error(error):
+    error_text = str(error)
+    return (
+        "429" in error_text
+        or "RESOURCE_EXHAUSTED" in error_text
+        or "rate limit" in error_text.lower()
+        or "quota" in error_text.lower()
+    )
+
 def ask(system_prompt, user_message, json_format=False, disable_thinking=True, model=DEFAULT_MODEL, history=None):
-    """
-    Sends a chat request to the Gemini API using the new google-genai SDK.
-    """
+    """Sends a chat request to the Gemini API."""
     global REQUESTS_USED, RATE_LIMITED
     if not client:
         return ""
@@ -44,62 +65,74 @@ def ask(system_prompt, user_message, json_format=False, disable_thinking=True, m
     if REQUESTS_USED >= REQUEST_BUDGET:
         print(f"Gemini request budget reached ({REQUESTS_USED}/{REQUEST_BUDGET}). Skipping LLM call.")
         return ""
-        
-    try:
-        kwargs = {}
-        if json_format:
-            kwargs["response_mime_type"] = "application/json"
-            
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            **kwargs
-        )
-        
-        contents = []
-        if history:
-            for msg in history:
-                role = msg.get("role", "user")
-                if role in ["assistant", "system", "model"]:
-                    role = "model"
-                else:
-                    role = "user"
-                
-                contents.append(
-                    types.Content(
-                        role=role, 
-                        parts=[types.Part.from_text(text=msg.get("content", ""))]
-                    )
-                )
-                
-        contents.append(user_message)
-        
-        REQUESTS_USED += 1
-        print(f"Gemini request {REQUESTS_USED}/{REQUEST_BUDGET} using {model}.")
-        response = client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=config
-        )
-        
-        return response.text
-        
-    except Exception as e:
-        error_text = str(e)
-        if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
-            RATE_LIMITED = True
-            print(f"Gemini rate limit reached for {model}. Stopping further LLM calls this run.")
-            return ""
-        print(f"Error calling Gemini API ({model}): {e}")
+
+    candidates = model_candidates(model)
+    if not candidates:
+        RATE_LIMITED = True
+        print("All configured Gemini models are rate limited. Skipping LLM call.")
         return ""
+
+    kwargs = {"response_mime_type": "application/json"} if json_format else {}
+    config = types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        **kwargs
+    )
+
+    contents = []
+    if history:
+        for msg in history:
+            role = msg.get("role", "user")
+            if role in ["assistant", "system", "model"]:
+                role = "model"
+            else:
+                role = "user"
+
+            contents.append(
+                types.Content(
+                    role=role,
+                    parts=[types.Part.from_text(text=msg.get("content", ""))]
+                )
+            )
+
+    contents.append(user_message)
+
+    for candidate in candidates:
+        if REQUESTS_USED >= REQUEST_BUDGET:
+            print(f"Gemini request budget reached ({REQUESTS_USED}/{REQUEST_BUDGET}). Skipping LLM call.")
+            return ""
+
+        try:
+            REQUESTS_USED += 1
+            print(f"Gemini request {REQUESTS_USED}/{REQUEST_BUDGET} using {candidate}.")
+            response = client.models.generate_content(
+                model=candidate,
+                contents=contents,
+                config=config
+            )
+            return response.text
+
+        except Exception as e:
+            if is_quota_error(e):
+                RATE_LIMITED_MODELS.add(candidate)
+                remaining = model_candidates(model)
+                if remaining:
+                    print(f"Gemini quota reached for {candidate}. Trying fallback model {remaining[0]}.")
+                    continue
+                RATE_LIMITED = True
+                print("Gemini quota reached for all configured models. Stopping further LLM calls this run.")
+                return ""
+            print(f"Error calling Gemini API ({candidate}): {e}")
+            return ""
+
+    RATE_LIMITED = True
+    return ""
 
 def ask_fast(system_prompt, user_message, history=None):
     """Uses the FAST_MODEL for quicker responses on simpler tasks."""
     return ask(system_prompt, user_message, model=FAST_MODEL, history=history)
 
 def ask_json(system_prompt, user_message, model=DEFAULT_MODEL):
-    """
-    Calls ask() and parses the result as JSON, retrying once if parsing fails.
-    """
+    """Calls ask() and parses the result as JSON, retrying once if parsing fails."""
     content = ask(system_prompt, user_message, json_format=True, model=model)
     
     try:
@@ -123,14 +156,11 @@ def ask_json(system_prompt, user_message, model=DEFAULT_MODEL):
             print("Failed to parse JSON on retry.")
             return {}
 
-# --- VECTOR RAG MEMORY ---
-
 import numpy as np
 
 EMBED_MODEL = "text-embedding-004"
 
 def get_embedding(text):
-    """Generates a mathematical embedding vector from Gemini for the given text."""
     if not client:
         return []
     try:
@@ -138,14 +168,12 @@ def get_embedding(text):
             model=EMBED_MODEL,
             contents=text,
         )
-        # Handle new SDK response schema: response.embeddings[0].values
         return response.embeddings[0].values
     except Exception as e:
         print(f"Embedding error: {e}")
         return []
 
 def cosine_similarity(vec1, vec2):
-    """Calculates cosine similarity between two numpy vectors."""
     dot_product = np.dot(vec1, vec2)
     norm1 = np.linalg.norm(vec1)
     norm2 = np.linalg.norm(vec2)
@@ -154,7 +182,6 @@ def cosine_similarity(vec1, vec2):
     return dot_product / (norm1 * norm2)
 
 def semantic_search(query_text, top_k=3):
-    """Embeds the query and searches SQLite for the most semantically similar memories."""
     import db
     
     if not client:

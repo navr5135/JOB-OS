@@ -2,6 +2,7 @@
 Gmail Integration: Authenticates using OAuth2 and provides functions to send emails and draft follow-ups.
 """
 import os
+import json
 import base64
 from email.mime.text import MIMEText
 from google.auth.transport.requests import Request
@@ -32,6 +33,8 @@ def get_gmail_service():
     # The file token.json stores the user's access and refresh tokens
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    elif os.getenv("GMAIL_TOKEN_JSON"):
+        creds = Credentials.from_authorized_user_info(json.loads(os.environ["GMAIL_TOKEN_JSON"]), SCOPES)
     
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:

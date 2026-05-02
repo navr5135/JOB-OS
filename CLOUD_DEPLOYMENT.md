@@ -39,9 +39,12 @@ TELEGRAM_CHAT_ID
 NOTION_API_KEY
 NOTION_DATABASE_ID
 RECIPIENT_EMAIL
+GMAIL_TOKEN_JSON
 ```
 
-Notion and recipient email are optional if you do not use those reports.
+Notion, recipient email, and `GMAIL_TOKEN_JSON` are optional if you do not use
+those reports or Gmail chat actions. `GMAIL_TOKEN_JSON` should contain the
+contents of your local Gmail `token.json`.
 
 Or set the values locally in `.env`, install the deployment helper dependencies,
 and run:
@@ -58,7 +61,6 @@ Set these for `telegram-webhook`:
 ```text
 TELEGRAM_BOT_TOKEN
 TELEGRAM_CHAT_ID
-COMMAND_PASSWORD
 GITHUB_OWNER
 GITHUB_REPO
 GITHUB_PAT
@@ -80,7 +82,7 @@ This runs the database migration, sets Edge Function secrets, deploys the
 Telegram webhook function, and registers the webhook with Telegram.
 
 Telegram cannot attach a Supabase JWT to webhook calls, so the function uses
-your Telegram chat id and command password as the access gate.
+your Telegram chat id as the access gate.
 
 Then set your Telegram webhook:
 
@@ -97,16 +99,25 @@ python scripts/set_telegram_webhook.py
 ## 5. Telegram Commands
 
 ```text
-/run <password>
-/discover <password>
-/apply <password>
-/stop <password>
-/status <password>
-/jobs <password>
-/help <password>
+/run
+/discover
+/apply
+/stop
+/status
+/jobs
+/help
 ```
 
 `/run` starts the GitHub Actions workflow. `/stop` cancels active runs for the workflow. The runner exits automatically after each job, so there is no idle server to pay for.
+
+Plain Telegram text starts the chat assistant. Example messages:
+
+```text
+What is going on inside JOBOS?
+Send me the top jobs over email.
+Find top AI operations news.
+Check recent recruiter emails.
+```
 
 ## Gemini Free-Tier Controls
 
@@ -115,6 +126,7 @@ free-tier quota:
 
 ```text
 GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_FALLBACK_MODELS=gemini-2.0-flash-lite,gemini-2.5-flash
 GEMINI_DAILY_REQUEST_BUDGET=18
 MAX_LLM_SCORED_JOBS=8
 MAX_APPLICATIONS_PER_RUN=2

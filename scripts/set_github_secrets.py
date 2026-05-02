@@ -28,6 +28,9 @@ SECRET_NAMES = [
     "NOTION_DATABASE_ID",
     "RECIPIENT_EMAIL",
 ]
+OPTIONAL_SECRET_NAMES = [
+    "GMAIL_TOKEN_JSON",
+]
 
 
 def github_headers():
@@ -60,7 +63,10 @@ def main():
         print("Missing local env vars: " + ", ".join(missing))
         sys.exit(1)
 
-    for name in SECRET_NAMES:
+    for name in [*SECRET_NAMES, *OPTIONAL_SECRET_NAMES]:
+        if not os.getenv(name):
+            print(f"Skipping optional GitHub secret: {name}")
+            continue
         encrypted_value = encrypt_secret(key_data["key"], os.environ[name])
         payload = {"encrypted_value": encrypted_value, "key_id": key_data["key_id"]}
         url = f"https://api.github.com/repos/{OWNER}/{REPO}/actions/secrets/{name}"

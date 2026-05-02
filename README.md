@@ -1,6 +1,6 @@
 # Job Search OS
 
-Telegram-triggered job search agent for discovering remote roles, scoring fit with Gemini, saving matches to Supabase, and reporting back through Telegram.
+Telegram-triggered job search agent for discovering remote roles, scoring fit with Gemini, saving matches to Supabase, and reporting back through Telegram. Plain Telegram messages are routed to a context-aware JOBOS chat assistant.
 
 ## Cloud Flow
 
@@ -12,7 +12,8 @@ Telegram command
 -> Supabase database + Telegram report
 ```
 
-The Python runner is not always on. It starts when `/run <password>` is sent through Telegram, completes the pipeline, then exits.
+The Python runner is not always on. It starts when `/run` is sent through Telegram from the allowed chat, completes the pipeline, then exits.
+Non-command Telegram messages are saved to Supabase and processed by a one-shot chat run.
 
 ## Repository
 
@@ -22,13 +23,22 @@ The Python runner is not always on. It starts when `/run <password>` is sent thr
 ## Commands
 
 ```text
-/run <password>
-/discover <password>
-/apply <password>
-/stop <password>
-/status <password>
-/jobs <password>
-/help <password>
+/run
+/discover
+/apply
+/stop
+/status
+/jobs
+/help
+```
+
+You can also send normal text, for example:
+
+```text
+What is going on inside JOBOS?
+Send me the top jobs over email.
+Find top AI operations news.
+Check recent recruiter emails.
 ```
 
 ## Deployment Files
@@ -40,4 +50,4 @@ The Python runner is not always on. It starts when `/run <password>` is sent thr
 
 ## Secrets
 
-Secrets are not committed. Use GitHub Actions secrets and Supabase Edge Function secrets for API keys, tokens, and passwords.
+Secrets are not committed. Use GitHub Actions secrets and Supabase Edge Function secrets for API keys and tokens.

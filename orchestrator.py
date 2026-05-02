@@ -106,6 +106,9 @@ def run_now(command="run"):
         run_discovery_only()
     elif command == "apply":
         run_application_only()
+    elif command == "chat":
+        from agents.chat_assistant import run_chat_once
+        run_chat_once()
     else:
         run_pipeline()
 

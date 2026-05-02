@@ -15,12 +15,16 @@ reports back through Telegram.
 - Scraping: requests + BeautifulSoup
 
 ## Runtime Flow
-1. User sends `/run <password>` to Telegram.
-2. Supabase Edge Function validates `TELEGRAM_CHAT_ID` and `COMMAND_PASSWORD`.
+1. User sends `/run` to Telegram.
+2. Supabase Edge Function validates `TELEGRAM_CHAT_ID`.
 3. Edge Function starts `.github/workflows/agent-run.yml`.
 4. GitHub Actions runs `python main.py --once`.
 5. The Python agent calls Gemini, writes to Supabase, and sends Telegram reports.
 6. The workflow exits, so there is no always-on Python server.
+
+Plain Telegram text is saved to `chat_history` and triggers a one-shot `chat`
+workflow run. The Python chat assistant must route actions through local JOBOS
+modules and all AI reasoning through `llm.py`.
 
 ## Rules For Agents
 - All AI calls must go through `llm.py`.
@@ -33,7 +37,7 @@ reports back through Telegram.
 - Update `requirements.txt` after adding dependencies.
 
 ## Security Rules
-- Telegram commands must validate both chat id and command password.
+- Telegram commands must validate chat id.
 - Never expose service-role keys in frontend/client code.
 - Do not commit `.env`, `token.json`, `credentials.json`, or database files.
 - Treat generated application content and email data as private.

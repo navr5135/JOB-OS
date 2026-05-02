@@ -23,7 +23,6 @@ $required = @(
     "SUPABASE_SERVICE_ROLE_KEY",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_CHAT_ID",
-    "COMMAND_PASSWORD",
     "GITHUB_PAT"
 )
 
@@ -40,7 +39,6 @@ npx supabase db push
 npx supabase secrets set `
     TELEGRAM_BOT_TOKEN="${env:TELEGRAM_BOT_TOKEN}" `
     TELEGRAM_CHAT_ID="${env:TELEGRAM_CHAT_ID}" `
-    COMMAND_PASSWORD="${env:COMMAND_PASSWORD}" `
     GITHUB_OWNER="navr5135" `
     GITHUB_REPO="JOB-OS" `
     GITHUB_PAT="${env:GITHUB_PAT}" `
