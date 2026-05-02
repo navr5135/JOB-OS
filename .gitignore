@@ -1,0 +1,12 @@
+.env
+token.json
+credentials.json
+jobs.db
+*.db
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+output/
+.DS_Store
+*.lnk

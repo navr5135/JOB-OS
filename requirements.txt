@@ -1,0 +1,10 @@
+requests
+schedule
+beautifulsoup4
+google-genai
+google-auth
+google-api-python-client
+google-auth-oauthlib
+notion-client
+python-dotenv
+numpy
