@@ -98,6 +98,8 @@ python scripts/set_telegram_webhook.py
 
 ```text
 /run <password>
+/discover <password>
+/apply <password>
 /stop <password>
 /status <password>
 /jobs <password>
@@ -105,3 +107,19 @@ python scripts/set_telegram_webhook.py
 ```
 
 `/run` starts the GitHub Actions workflow. `/stop` cancels active runs for the workflow. The runner exits automatically after each job, so there is no idle server to pay for.
+
+## Gemini Free-Tier Controls
+
+The workflow uses conservative defaults so one run does not burn the entire
+free-tier quota:
+
+```text
+GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_DAILY_REQUEST_BUDGET=18
+MAX_LLM_SCORED_JOBS=8
+MAX_APPLICATIONS_PER_RUN=2
+MIN_APPLICATION_SCORE=80
+```
+
+Use `/discover` to only find and score jobs. Use `/apply` later to generate
+applications for the top saved jobs.

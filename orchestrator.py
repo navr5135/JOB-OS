@@ -14,6 +14,36 @@ def get_timestamp():
     """Returns a formatted current timestamp."""
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+def _sync_notion():
+    try:
+        print(f"[{get_timestamp()}] >>> Starting Notion sync...")
+        sync_all_jobs()
+        print(f"[{get_timestamp()}] Notion sync complete.")
+    except Exception as e:
+        print(f"[{get_timestamp()}] Notion sync failed: {e}")
+
+def run_discovery_only():
+    print(f"\n[{get_timestamp()}] >>> Starting discovery-only run...")
+    run_discovery()
+    _sync_notion()
+    telegram.send_report("Discovery Complete", {
+        'saved': len(db.get_jobs_by_status("new")),
+        'applications': 0,
+        'runtime': 'single command'
+    })
+
+def run_application_only():
+    print(f"\n[{get_timestamp()}] >>> Starting application-only run...")
+    initial_applied_count = len(db.get_jobs_by_status("applied"))
+    run_application()
+    apps_generated = len(db.get_jobs_by_status("applied")) - initial_applied_count
+    _sync_notion()
+    telegram.send_report("Application Writing Complete", {
+        'saved': len(db.get_jobs_by_status("new")),
+        'applications': apps_generated,
+        'runtime': 'single command'
+    })
+
 def run_pipeline():
     """Executes the complete job search pipeline."""
     start_time = time.time()
@@ -55,12 +85,7 @@ def run_pipeline():
     print("="*50 + "\n")
 
     # 3. Sync to Notion
-    try:
-        print(f"[{get_timestamp()}] >>> Starting Notion sync...")
-        sync_all_jobs()
-        print(f"[{get_timestamp()}] Notion sync complete.")
-    except Exception as e:
-        print(f"[{get_timestamp()}] Notion sync failed: {e}")
+    _sync_notion()
         
     end_time = time.time()
     runtime_mins = round((end_time - start_time) / 60, 2)
@@ -75,9 +100,14 @@ def run_pipeline():
     except Exception as e:
         print(f"Telegram report failed: {e}")
 
-def run_now():
+def run_now(command="run"):
     """Triggers the pipeline immediately."""
-    run_pipeline()
+    if command == "discover":
+        run_discovery_only()
+    elif command == "apply":
+        run_application_only()
+    else:
+        run_pipeline()
 
 def start_scheduler():
     """Sets up the daily schedule."""

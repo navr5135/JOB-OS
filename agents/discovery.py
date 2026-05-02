@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import llm
 import db
-from config import CANDIDATE_PROFILE
+from config import CANDIDATE_PROFILE, MAX_LLM_SCORED_JOBS
 from integrations import notion
 
 # Source config
@@ -320,6 +320,7 @@ def run_discovery():
     pre_rejected_count = 0
     auto_accepted_count = 0
     sent_to_llm_count = 0
+    skipped_budget_count = 0
     
     for job in new_jobs:
         processed_count += 1
@@ -350,9 +351,20 @@ def run_discovery():
                 'seniority_level': 'mid'
             }
         else:
+            if sent_to_llm_count >= MAX_LLM_SCORED_JOBS or not llm.can_call():
+                print(" -> SKIPPED to preserve Gemini request budget.")
+                skipped_budget_count += 1
+                continue
             print(" -> Sent to LLM.")
             sent_to_llm_count += 1
             analysis = analyze_job(job)
+
+            if not analysis:
+                skipped_score_count += 1
+                if llm.is_rate_limited():
+                    print("Gemini rate limit reached. Stopping discovery scoring early.")
+                    break
+                continue
             
         score = analysis.get('score', 0)
         reason = analysis.get('reason', 'No reason provided.')
@@ -412,7 +424,7 @@ def run_discovery():
     for src, count in source_counts.items():
         print(f"- {src}: {count}")
     
-    print(f"\nProcessing Stats: {pre_rejected_count} pre-rejected | {auto_accepted_count} auto-accepted | {sent_to_llm_count} sent to LLM")
+    print(f"\nProcessing Stats: {pre_rejected_count} pre-rejected | {auto_accepted_count} auto-accepted | {sent_to_llm_count} sent to LLM | {skipped_budget_count} budget-skipped")
     print(f"Summary: {saved_count} jobs saved ({skipped_seniority_count} skipped - too senior, {skipped_india_count} skipped - not India friendly, {skipped_score_count} skipped - low score)")
     
     # Immediately sync newly discovered jobs to Notion

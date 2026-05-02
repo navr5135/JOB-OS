@@ -8,6 +8,11 @@ from dotenv import load_dotenv
 load_dotenv()
 RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL", "your_email@gmail.com")
 
+GEMINI_DAILY_REQUEST_BUDGET = int(os.getenv("GEMINI_DAILY_REQUEST_BUDGET", "18"))
+MAX_LLM_SCORED_JOBS = int(os.getenv("MAX_LLM_SCORED_JOBS", "8"))
+MAX_APPLICATIONS_PER_RUN = int(os.getenv("MAX_APPLICATIONS_PER_RUN", "2"))
+MIN_APPLICATION_SCORE = int(os.getenv("MIN_APPLICATION_SCORE", "80"))
+
 CANDIDATE_PROFILE = {
     "name": "Navaditya",
     "current_role": "Project Coordinator, Smartsites (US digital marketing agency)",

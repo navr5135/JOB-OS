@@ -135,6 +135,12 @@ Deno.serve(async (req) => {
     if (command === "/run") {
       await triggerWorkflow("run");
       await sendTelegram(chatId, "Starting Job Search OS cloud run.");
+    } else if (command === "/discover") {
+      await triggerWorkflow("discover");
+      await sendTelegram(chatId, "Starting discovery-only cloud run.");
+    } else if (command === "/apply") {
+      await triggerWorkflow("apply");
+      await sendTelegram(chatId, "Starting application-writing cloud run.");
     } else if (command === "/stop") {
       const count = await cancelWorkflow();
       await sendTelegram(chatId, count ? `Requested cancellation for ${count} active run(s).` : "No active cloud runs found.");
@@ -143,7 +149,7 @@ Deno.serve(async (req) => {
     } else if (command === "/jobs") {
       await handleJobs(chatId);
     } else if (command === "/help") {
-      await sendTelegram(chatId, "Commands:\n/run <password>\n/stop <password>\n/status <password>\n/jobs <password>\n/help <password>");
+      await sendTelegram(chatId, "Commands:\n/run <password>\n/discover <password>\n/apply <password>\n/stop <password>\n/status <password>\n/jobs <password>\n/help <password>");
     } else {
       await sendTelegram(chatId, "Unknown command. Try /help <password>.");
     }

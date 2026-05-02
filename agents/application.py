@@ -34,9 +34,29 @@ def run_application():
         print("No 'new' jobs found in the database.")
         return
 
-    print(f"Found {len(new_jobs)} new jobs. Generating applications...")
+    new_jobs.sort(key=lambda x: int(x.get('score') or 0), reverse=True)
+    eligible_jobs = [
+        job for job in new_jobs
+        if int(job.get('score') or 0) >= config.MIN_APPLICATION_SCORE
+    ]
+    target_jobs = eligible_jobs[:config.MAX_APPLICATIONS_PER_RUN]
 
-    for job in new_jobs:
+    print(
+        f"Found {len(new_jobs)} new jobs. "
+        f"Generating up to {len(target_jobs)} applications "
+        f"(score >= {config.MIN_APPLICATION_SCORE})."
+    )
+
+    if not target_jobs:
+        print("No jobs met the application score threshold.")
+        return
+
+    generated_count = 0
+    for job in target_jobs:
+        if not llm.can_call():
+            print("LLM budget unavailable. Stopping application generation.")
+            break
+
         job_id = job.get('id')
         title = job.get('title')
         company = job.get('company')
@@ -44,26 +64,31 @@ def run_application():
 
         print(f"Processing application for {title} at {company}...")
 
-        # 1. CV Tailoring
-        cv_system = (
-            "You are an expert CV writer. Return 3 bullet points tailored to "
-            "this specific job. Each bullet should start with a strong action verb and "
-            "include a measurable result. Be concise."
+        system_prompt = (
+            "You are an expert job application writer. Return ONLY valid JSON "
+            "with keys: cv_bullets (array of exactly 3 concise tailored bullets) "
+            "and cover_letter (string, 120-170 words). Be specific to the role, "
+            "professional, and human. Do not invent facts."
         )
-        cv_user = f"Job: {title} at {company}\nDescription: {description}\nCandidate: {config.CANDIDATE_PROFILE}"
-        cv_bullets = llm.ask_fast(cv_system, cv_user)
-
-        # 2. Cover Letter
-        cl_system = (
-            "You are an expert cover letter writer. Write a 150-word cover "
-            "letter. Be specific to the company and role. Professional but human tone."
+        user_message = (
+            f"Job: {title} at {company}\n"
+            f"Description: {description}\n"
+            f"Candidate: {config.CANDIDATE_PROFILE}"
         )
-        cl_user = cv_user  # Same context as CV
-        cover_letter = llm.ask_fast(cl_system, cl_user)
+        draft = llm.ask_json(system_prompt, user_message, model=llm.FAST_MODEL)
+        cv_items = draft.get("cv_bullets", []) if isinstance(draft, dict) else []
+        cover_letter = draft.get("cover_letter", "") if isinstance(draft, dict) else ""
+        if isinstance(cv_items, str):
+            cv_bullets = cv_items
+        else:
+            cv_bullets = "\n".join(f"- {item}" for item in cv_items if str(item).strip())
 
         if not cv_bullets.strip() or not cover_letter.strip():
             print(f"LLM returned empty content for {title} at {company}. Leaving job as 'new'.")
             db.update_status(job_id, 'new', notes="Application generation failed: empty LLM output.")
+            if llm.is_rate_limited():
+                print("Stopping application generation because Gemini rate limit was reached.")
+                break
             continue
 
         # Truncate cover letter to max 200 words
@@ -87,7 +112,10 @@ def run_application():
 
         # 4. Update Database
         db.update_status(job_id, 'applied', notes="Generated CV and Cover Letter.")
+        generated_count += 1
         print(f"Successfully generated application and saved to {file_path}")
+
+    print(f"Application generation complete: {generated_count} generated.")
 
 if __name__ == "__main__":
     run_application()

@@ -23,6 +23,8 @@ The Python runner is not always on. It starts when `/run <password>` is sent thr
 
 ```text
 /run <password>
+/discover <password>
+/apply <password>
 /stop <password>
 /status <password>
 /jobs <password>

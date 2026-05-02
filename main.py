@@ -5,6 +5,7 @@ import orchestrator
 import time
 import sys
 import threading
+import os
 from integrations import telegram
 import db
 
@@ -19,8 +20,9 @@ def main():
     db.init_db()
 
     if '--once' in sys.argv:
-        print("Running in --once mode for cloud/task scheduler.")
-        orchestrator.run_now()
+        command = os.getenv("AGENT_COMMAND", "run").lower()
+        print(f"Running in --once mode for cloud/task scheduler: {command}")
+        orchestrator.run_now(command)
         sys.exit(0)
     
     # Start Telegram Listener Daemon

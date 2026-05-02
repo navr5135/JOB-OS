@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+REQUEST_BUDGET = int(os.getenv("GEMINI_DAILY_REQUEST_BUDGET", "18"))
+REQUESTS_USED = 0
+RATE_LIMITED = False
 
 if not GEMINI_API_KEY:
     print("WARNING: GEMINI_API_KEY not found in .env. API calls will fail.")
@@ -16,14 +19,30 @@ if not GEMINI_API_KEY:
 # Initialize the client globally
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-DEFAULT_MODEL = "gemini-2.5-flash"
-FAST_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+FAST_MODEL = os.getenv("GEMINI_FAST_MODEL", DEFAULT_MODEL)
+
+def calls_remaining():
+    return max(REQUEST_BUDGET - REQUESTS_USED, 0)
+
+def can_call():
+    return bool(client and not RATE_LIMITED and calls_remaining() > 0)
+
+def is_rate_limited():
+    return RATE_LIMITED
 
 def ask(system_prompt, user_message, json_format=False, disable_thinking=True, model=DEFAULT_MODEL, history=None):
     """
     Sends a chat request to the Gemini API using the new google-genai SDK.
     """
+    global REQUESTS_USED, RATE_LIMITED
     if not client:
+        return ""
+    if RATE_LIMITED:
+        print("Gemini rate limit already reached. Skipping LLM call.")
+        return ""
+    if REQUESTS_USED >= REQUEST_BUDGET:
+        print(f"Gemini request budget reached ({REQUESTS_USED}/{REQUEST_BUDGET}). Skipping LLM call.")
         return ""
         
     try:
@@ -54,6 +73,8 @@ def ask(system_prompt, user_message, json_format=False, disable_thinking=True, m
                 
         contents.append(user_message)
         
+        REQUESTS_USED += 1
+        print(f"Gemini request {REQUESTS_USED}/{REQUEST_BUDGET} using {model}.")
         response = client.models.generate_content(
             model=model,
             contents=contents,
@@ -63,6 +84,11 @@ def ask(system_prompt, user_message, json_format=False, disable_thinking=True, m
         return response.text
         
     except Exception as e:
+        error_text = str(e)
+        if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
+            RATE_LIMITED = True
+            print(f"Gemini rate limit reached for {model}. Stopping further LLM calls this run.")
+            return ""
         print(f"Error calling Gemini API ({model}): {e}")
         return ""
 
@@ -81,6 +107,9 @@ def ask_json(system_prompt, user_message, model=DEFAULT_MODEL):
             raise ValueError("Empty response")
         return json.loads(content)
     except (json.JSONDecodeError, TypeError, ValueError):
+        if RATE_LIMITED or calls_remaining() <= 0:
+            print("Failed to parse JSON and no LLM budget remains.")
+            return {}
         print("Failed to parse JSON, retrying...")
         content = ask(system_prompt, user_message + " (Return ONLY valid JSON without markdown block wrappers)", json_format=True, model=model)
         try:
