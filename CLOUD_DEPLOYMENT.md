@@ -43,6 +43,14 @@ RECIPIENT_EMAIL
 
 Notion and recipient email are optional if you do not use those reports.
 
+Or set the values locally in `.env`, install the deployment helper dependencies,
+and run:
+
+```bash
+pip install -r requirements-deploy.txt
+python scripts/set_github_secrets.py
+```
+
 ## 3. Supabase Edge Function Secrets
 
 Set these for `telegram-webhook`:
@@ -64,9 +72,12 @@ SUPABASE_SERVICE_ROLE_KEY
 
 ## 4. Deploy The Edge Function
 
-```bash
-supabase functions deploy telegram-webhook --no-verify-jwt
+```powershell
+.\scripts\deploy_supabase.ps1
 ```
+
+This runs the database migration, sets Edge Function secrets, deploys the
+Telegram webhook function, and registers the webhook with Telegram.
 
 Telegram cannot attach a Supabase JWT to webhook calls, so the function uses
 your Telegram chat id and command password as the access gate.
